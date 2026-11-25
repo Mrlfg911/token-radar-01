@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Radar — pre-token protocols ranked by implied launch value</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<a class="skip" href="#board">Skip to the board</a>
+
+<header class="top">
+  <div class="wrap top-in">
+    <div class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="wordmark">Token Radar</span>
+      <span class="ver" id="ver">radar-2</span>
+    </div>
+    <dl class="meta" id="meta"></dl>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero" aria-labelledby="h1">
+    <div>
+      <h1 id="h1">What these protocols are worth before they have a token</h1>
+      <p class="dek" id="dek"></p>
+      <p class="dek2">
+        Every figure below is derived from the snapshot's own record: TVL, the seven-day move, how long
+        the protocol has run, how many chains carry it, and what the market already pays for its
+        category. No protocol is named as a favourite anywhere in the model.
+      </p>
+      <nav class="jump" aria-label="Sections">
+        <a href="#board">Board</a>
+        <a href="#method">Model</a>
+        <a href="#calib">Calibration</a>
+        <a href="#live">Live tokens</a>
+      </nav>
+    </div>
+    <div class="stats" id="stats" aria-label="Summary figures"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-method" id="method">
+    <div class="panel-head">
+      <h2 id="h-method">How a row is priced</h2>
+      <p class="sub">Four multipliers on the protocol's TVL. Every one of them is stated on the row.</p>
+    </div>
+    <ol class="formula">
+      <li><b>Category multiple</b><span>what a dollar of TVL in this business is worth at launch, from the category's own table</span></li>
+      <li><b>Growth</b><span>1 + the seven-day move &times; weight, clipped so one wild week cannot carry a row</span></li>
+      <li><b>Maturity</b><span>a protocol that has run years with no token earns more than one listed last month</span></li>
+      <li><b>Chain spread</b><span>each extra chain the protocol actually runs on, up to four</span></li>
+    </ol>
+    <p class="eq"><span class="lbl">implied value</span> = TVL &times; category multiple &times; growth &times; maturity &times; chain spread</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-board" id="board-panel">
+    <div class="panel-head">
+      <h2 id="h-board">The board</h2>
+      <p class="sub" id="boardsub"></p>
+    </div>
+
+    <div class="controls">
+      <label class="field">
+        <span>Search</span>
+        <input id="q" type="search" placeholder="name, category or chain" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Category</span>
+        <select id="cat"><option value="">All categories</option></select>
+      </label>
+      <label class="field">
+        <span>Chain</span>
+        <select id="chain"><option value="">All chains</option></select>
+      </label>
+      <div class="field seg-field">
+        <span>Set</span>
+        <div class="seg" role="group" aria-label="Which set to show">
+          <button type="button" class="seg-b on" data-set="pre" aria-pressed="true">Pre-token</button>
+          <button type="button" class="seg-b" data-set="live" aria-pressed="false">Live token</button>
+        </div>
+      </div>
+      <div class="count" id="count" aria-live="polite"></div>
+    </div>
+
+    <div class="tablewrap">
+      <table id="board">
+        <thead>
+          <tr>
+            <th class="c-rank" data-sort="rank"><button type="button">Rank</button></th>
+            <th class="c-name" data-sort="name"><button type="button">Protocol</button></th>
+            <th class="c-num" data-sort="tvl_usd"><button type="button">TVL</button></th>
+            <th class="c-num" data-sort="change_7d"><button type="button">7d</button></th>
+            <th class="c-num" data-sort="age_days"><button type="button">Age</button></th>
+            <th class="c-num c-bar" data-sort="implied_value_usd" aria-sort="descending"><button type="button">Implied value</button></th>
+            <th class="c-flag">Risk</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="foot" id="foot"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-calib" id="calib">
+    <div class="panel-head">
+      <h2 id="h-calib">The model against the market</h2>
+      <p class="sub">
+        For every category, the multiple the model uses next to the multiple the market already pays
+        the protocols in that category that do have a token. Where the two disagree by a lot, the
+        model is the one to doubt.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table id="cal">
+        <thead>
+          <tr>
+            <th data-csort="category"><button type="button">Category</button></th>
+            <th class="c-num" data-csort="protocols"><button type="button">Pre-token</button></th>
+            <th class="c-num" data-csort="multiple"><button type="button">Model multiple</button></th>
+            <th class="c-num" data-csort="observed_mcap_per_tvl"><button type="button">Market mcap / TVL</button></th>
+            <th class="c-num" data-csort="observed_count"><button type="button">Priced</button></th>
+            <th class="c-verdict">Reading</th>
+          </tr>
+        </thead>
+        <tbody id="calrows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-live" id="live">
+    <div class="panel-head">
+      <h2 id="h-live">Protocols whose token already trades</h2>
+      <p class="sub">Not ranked against the board: these are the market's own prices, kept apart on purpose.</p>
+    </div>
+    <div class="tablewrap">
+      <table id="livetbl">
+        <thead>
+          <tr><th>Protocol</th><th class="c-num">TVL</th><th class="c-num">Market cap</th><th class="c-num">mcap / TVL</th><th class="c-num">7d</th></tr>
+        </thead>
+        <tbody id="liverows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-risk" id="risk">
+    <div class="panel-head">
+      <h2 id="h-risk">What would go wrong</h2>
+      <p class="sub">The flags the board raises, counted across every ranked row.</p>
+    </div>
+    <ul class="flags" id="flags"></ul>
+  </section>
+
+  <footer class="pagefoot">
+    <p id="src"></p>
+    <p>Implied value is a model, not a promise. Nothing here is financial advice, and no farm plan here is an offer: verify every contract and every link before you sign.</p>
+  </footer>
+</main>
+
+<!-- Detail view: opened by selecting any row. -->
+<div class="drawer" id="drawer" hidden aria-hidden="true">
+  <div class="drawer-scrim" id="scrim"></div>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="d-title">
+    <div class="drawer-head">
+      <div>
+        <p class="drawer-rank" id="d-rank"></p>
+        <h2 id="d-title">Protocol</h2>
+        <p class="drawer-sub" id="d-sub"></p>
+      </div>
+      <button type="button" class="close" id="dclose" aria-label="Close detail view">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="d-top">
+        <div class="d-value">
+          <span class="lbl">Implied launch value</span>
+          <strong id="d-value">—</strong>
+          <span class="lbl2" id="d-value-note"></span>
+        </div>
+        <div class="d-bars" id="d-bars"></div>
+      </div>
+
+      <h3>Inputs, straight from the snapshot</h3>
+      <dl class="kv" id="d-kv"></dl>
+
+      <h3>The four multipliers</h3>
+      <div class="mult" id="d-mult"></div>
+
+      <h3>Risk flags</h3>
+      <ul class="dflags" id="d-flags"></ul>
+
+      <h3>Farm plan</h3>
+      <ol class="plan" id="d-plan"></ol>
+
+      <p class="d-foot">
+        Capital figures are sized to this protocol's own TVL. Nothing here is advice: sizes are
+        examples, and you should size to what you can afford to lose.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
