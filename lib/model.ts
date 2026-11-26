@@ -776,15 +776,12 @@ export function buildBoard(snap: Snapshot, fit: Fit): { board: BoardRow[]; rows:
     .sort((a, b) => b.p.tvl_usd - a.p.tvl_usd)
     .slice(0, Math.max(EARLY_LIMIT, MIN_BOARD_ROWS));
 
-  // Live tokens share the board for comparison, but keep their status explicit: the radar's ranking
-  // is about pre-token candidates, and live rows are training evidence rather than opportunities.
-  const chosen = [...onWatch, ...early, ...live.map((x) => ({ ...x, live: true }))];
-  // Candidates rank by implied value; live rows are shown separately after them, ordered by market cap.
-  const candidates = chosen.filter((x) => !x.live)
-    .sort((a, b) => b.v.implied - a.v.implied || b.v.launch_odds - a.v.launch_odds || b.p.tvl_usd - a.p.tvl_usd);
-  const liveRows = chosen.filter((x) => x.live)
-    .sort((a, b) => (b.p.mcap_usd ?? 0) - (a.p.mcap_usd ?? 0));
-  chosen.splice(0, chosen.length, ...candidates, ...liveRows);
+  // The board is the ranked radar: pre-token candidates only. Live tokens are the training evidence and
+  // live in the dashboard payload (and the Model tab), never in the scored ranking — the gate requires
+  // implied value to fall monotonically across every row of board.json, and a live token's market cap is
+  // not comparable to a pre-token implied launch value.
+  const chosen = [...onWatch, ...early];
+  chosen.sort((a, b) => b.v.implied - a.v.implied || b.v.launch_odds - a.v.launch_odds || b.p.tvl_usd - a.p.tvl_usd);
 
   const board: BoardRow[] = [];
   const rows: RadarRow[] = [];
@@ -808,8 +805,8 @@ export function buildBoard(snap: Snapshot, fit: Fit): { board: BoardRow[]; rows:
       symbol: x.p.symbol,
       token_status: x.live ? 'live' : 'pre-token',
       age_days: x.v.age_days,
-      // Live rows carry their observed market cap in the value column; pre-token rows carry the model's
-      // implied launch value. This keeps the scored board globally sorted while the status stays explicit.
+      // Live rows keep their observed market cap, so the Model tab can compare realised against modelled
+      // multiples; the scored board holds pre-token candidates only.
       implied_value_usd: x.live ? (x.p.mcap_usd as number) : x.v.implied,
       model: {
         base_multiple: Math.round(x.v.base_multiple * 10000) / 10000,
@@ -860,6 +857,57 @@ export function buildBoard(snap: Snapshot, fit: Fit): { board: BoardRow[]; rows:
   });
 
   return { board, rows };
+}
+
+/**
+ * The dashboard payload's live-token rows: same shape as the board's rows, but flagged `pretoken: false`
+ * and carrying the observed market cap. They are never written to board.json — the scored board ranks
+ * pre-token candidates only — but the page shows them so a reader can compare the model with reality.
+ */
+export function liveRadarRows(snap: Snapshot, fit: Fit): RadarRow[] {
+  return snap.protocols
+    .filter(isLive)
+    .map((p) => {
+      const v = impliedValue(p, snap.as_of, fit);
+      const plan = farmPlan(p, v);
+      return {
+        rank: 0,
+        slug: p.slug,
+        name: p.name,
+        category: p.category,
+        chains: p.chains,
+        tvl_usd: p.tvl_usd,
+        change_7d: p.change_7d,
+        mcap_usd: p.mcap_usd,
+        listed_at: p.listed_at,
+        age_days: v.age_days,
+        age_known: v.age_known,
+        implied_value_usd: p.mcap_usd as number,
+        implied_low_usd: v.implied_low,
+        implied_high_usd: v.implied_high,
+        multiple: Math.round(v.multiple * 10000) / 10000,
+        pretoken: false,
+        launch_odds: Math.round(v.launch_odds * 10000) / 10000,
+        launch_low: Math.round(v.launch_low * 10000) / 10000,
+        launch_high: Math.round(v.launch_high * 10000) / 10000,
+        expected_value_usd: Math.round(v.implied * v.launch_odds),
+        growth_multiplier: Math.round(v.growth_multiplier * 10000) / 10000,
+        maturity_multiplier: Math.round(v.maturity_multiplier * 10000) / 10000,
+        chain_multiplier: Math.round(v.chain_multiplier * 10000) / 10000,
+        base_multiple: Math.round(v.base_multiple * 10000) / 10000,
+        risk_flags: riskFlags(p, v),
+        plan: plan.steps,
+        farm: {
+          ...plan.verdict,
+          expected_usd: Math.round(plan.verdict.expected_usd),
+          expected_low_usd: Math.round(plan.verdict.expected_low_usd),
+          expected_high_usd: Math.round(plan.verdict.expected_high_usd),
+          per_hour: Math.round(plan.verdict.per_hour),
+          per_hour_low: Math.round(plan.verdict.per_hour_low),
+        },
+      };
+    })
+    .sort((a, b) => (b.mcap_usd ?? 0) - (a.mcap_usd ?? 0));
 }
 
 export function liveRows(snap: Snapshot, fit: Fit): LiveRow[] {
@@ -915,6 +963,8 @@ export function buildRadar(snap: Snapshot): { board: BoardRow[]; radar: RadarDat
   const live = liveRows(snap, fit);
   const watch = new Set(snap.watchlist);
   const calibration = calibrationOf(snap);
+  // The page shows both sets; board.json carries the ranked candidates alone.
+  const pageRows = [...rows, ...liveRadarRows(snap, fit)];
   const radar: RadarData = {
     as_of: snap.as_of,
     source: snap.source,
@@ -926,7 +976,7 @@ export function buildRadar(snap: Snapshot): { board: BoardRow[]; radar: RadarDat
     early_size: rows.filter((r) => !watch.has(r.slug)).length,
     live_size: live.length,
     fit,
-    rows,
+    rows: pageRows,
     live,
     calibration,
     watchlist: snap.watchlist,
